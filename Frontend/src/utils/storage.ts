@@ -630,7 +630,7 @@ export function getStudentPointSummaries(): StudentPointSummary[] {
 
     return {
       ...student,
-      disciplineStatus: ruleInfo.status,
+      disciplineStatus: ruleInfo.status as DisciplineStatus,
       warningLevel: ruleInfo.warningLevel,
       followUpAction: ruleInfo.followUp,
       totalPelanggaran,

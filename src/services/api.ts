@@ -179,20 +179,21 @@ export const Mappers = {
   // Major
   majorToBackend: (m: any) => ({
     id: m.id || undefined,
-    kode: String(m.code || m.kode || m.name || '').trim(),
-    nama: String(m.name || m.nama || '').trim(),
+    kode: String(m.code || m.kode || '').trim(),
+    nama_jurusan: String(m.name || m.nama_jurusan || m.nama || '').trim(),
     deskripsi: String(m.description || m.deskripsi || '').trim(),
     kaprog: String(m.kaprog || '').trim(),
-    status: m.isActive !== false ? 'Aktif' : 'Nonaktif'
+    status: m.isActive === false ? 'Nonaktif' : 'Aktif',
+    updated_at: new Date().toISOString()
   }),
 
   majorFromBackend: (r: any) => ({
-    id: String(r.id || r.kode || r.code || r.nama || ''),
-    code: String(r.kode || r.code || r.nama || ''),
-    name: String(r.nama || r.name || ''),
+    id: String(r.id || r.kode || r.code || ''),
+    code: String(r.kode || r.code || ''),
+    name: String(r.nama_jurusan || r.nama || r.name || ''),
     description: String(r.deskripsi || r.description || ''),
     kaprog: String(r.kaprog || ''),
-    isActive: r.status !== 'Nonaktif' && r.isActive !== false
+    isActive: String(r.status || '').toLowerCase() !== 'nonaktif' && r.isActive !== false
   }),
 
   // Master Violation

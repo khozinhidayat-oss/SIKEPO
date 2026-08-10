@@ -8,8 +8,41 @@ export type DisciplineStatus =
   | 'Sangat Berat' 
   | 'Dikembalikan kepada Orang Tua';
 
+export interface DisciplineRule {
+  id: string;
+  ruleName: string;
+  minPoint: number;
+  maxPoint: number;
+  statusKedisiplinan: string;
+  jenisPembinaan: string;
+  tindakanSekolah: string;
+  suratDiterbitkan: string;
+  pemanggilanOrtu: boolean | string;
+  homeVisit: boolean | string;
+  konselingBk: boolean | string;
+  rekomendasiTindakLanjut: string;
+  priority: number;
+  isActive: boolean;
+  keterangan?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+}
+
 export interface DisciplineRuleInfo {
-  status: DisciplineStatus;
+  ruleId?: string;
+  ruleName?: string;
+  minPoint?: number;
+  maxPoint?: number;
+  status: DisciplineStatus | string;
+  jenisPembinaan?: string;
+  tindakanSekolah?: string;
+  suratDiterbitkan?: string;
+  pemanggilanOrtu?: boolean;
+  homeVisit?: boolean;
+  konselingBk?: boolean;
+  rekomendasiTindakLanjut?: string;
   warningLevel: string;
   followUp: string;
   badgeClass: string;
@@ -42,14 +75,18 @@ export interface Student {
   gender: 'L' | 'P';
   className: string;
   majorName: string;
-  address: string;
-  parentPhone: string;
-  status: 'Aktif' | 'Non-Aktif';
+  major?: string;
+  level?: string;
+  status: 'Aktif' | 'Non-Aktif' | 'Nonaktif' | 'Alumni' | 'Lulus';
+  address?: string;
+  phone?: string;
+  parentPhone?: string;
   disciplineStatus?: DisciplineStatus;
   statusUpdatedBy?: string;
   statusUpdatedRole?: UserRole | string;
   statusUpdatedAt?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface DisciplineStatusHistory {
@@ -77,8 +114,11 @@ export interface ClassItem {
 
 export interface MajorItem {
   id: string;
+  code?: string;
   name: string;
   description: string;
+  kaprog?: string;
+  isActive?: boolean;
 }
 
 export interface MasterViolation {
@@ -145,6 +185,7 @@ export interface SystemSettings {
 
   // Tab 3: Pengaturan Poin
   pointThreshold: number; // Limit point e.g. 100
+  defaultPoints?: number;
   autoCalculatePoints: boolean;
   autoDisciplineStatus: boolean;
 
@@ -255,4 +296,49 @@ export interface MaintenanceHistoryItem {
   endTime?: string;
   duration?: string;
   timestamp: string;
+}
+
+export interface PasswordResetRequest {
+  id: string;
+  tanggal: string;
+  username: string;
+  nama: string;
+  email: string;
+  nomorWhatsapp: string;
+  alasan: string;
+  status: 'Menunggu Persetujuan' | 'Disetujui' | 'Ditolak';
+  diprosesOleh?: string;
+  tanggalProses?: string;
+  catatanAdmin?: string;
+}
+
+export interface SpreadsheetConfig {
+  spreadsheetId: string;
+  spreadsheetUrl: string;
+  spreadsheetName: string;
+  sheetCount: number;
+  status: 'Terhubung' | 'Tidak Terhubung';
+  connectedAt?: string;
+}
+
+export interface DriveFolderConfig {
+  folderId: string;
+  folderUrl: string;
+  folderName: string;
+  status: 'Terhubung' | 'Tidak Terhubung';
+  connectedAt?: string;
+}
+
+export interface BackupRecord {
+  id: string;
+  filename: string;
+  date: string;
+  time: string;
+  scope: string;
+  size: string;
+  createdByName: string;
+  downloadUrl?: string;
+  driveFileId?: string;
+  status: 'Sukses' | 'Gagal';
+  mode: 'manual' | 'otomatis';
 }

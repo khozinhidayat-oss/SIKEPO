@@ -75,8 +75,12 @@ export interface Student {
   gender: 'L' | 'P';
   className: string;
   majorName: string;
+  major?: string;
   level?: string;
   status: 'Aktif' | 'Non-Aktif' | 'Nonaktif' | 'Alumni' | 'Lulus';
+  address?: string;
+  phone?: string;
+  parentPhone?: string;
   disciplineStatus?: DisciplineStatus;
   statusUpdatedBy?: string;
   statusUpdatedRole?: UserRole | string;
@@ -110,8 +114,11 @@ export interface ClassItem {
 
 export interface MajorItem {
   id: string;
+  code?: string;
   name: string;
   description: string;
+  kaprog?: string;
+  isActive?: boolean;
 }
 
 export interface MasterViolation {
