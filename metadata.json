@@ -1,0 +1,6 @@
+{
+  "name": "SMART POINT SISWA",
+  "description": "Aplikasi Pengelolaan Poin Pelanggaran dan Prestasi Siswa Sekolah untuk Admin dan Tim Kesiswaan",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
