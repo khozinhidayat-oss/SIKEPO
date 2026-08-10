@@ -543,7 +543,35 @@ export const ApiService = {
     return callApi('toggleDisciplineRule', { id, isActive, userName, userRole });
   },
 
-  // Backup & Restore & Connection
+  // Backup & Restore & Google Drive & Connection
+  connectGoogleDrive: async (folderIdOrUrl: string, userName?: string) => {
+    return callApi('connectGoogleDrive', { folderId: folderIdOrUrl, userName });
+  },
+
+  validateGoogleDrive: async (folderIdOrUrl: string, userName?: string) => {
+    return callApi('validateGoogleDrive', { folderId: folderIdOrUrl, userName });
+  },
+
+  getDriveStatus: async () => {
+    return callApi('getDriveStatus');
+  },
+
+  getBackupFiles: async () => {
+    return callApi('getBackupFiles');
+  },
+
+  backupDatabase: async (filename?: string, scope?: string, userName?: string) => {
+    return callApi('backupDatabase', { filename, scope, userName });
+  },
+
+  restoreDatabase: async (fileId?: string, backupData?: any, userName?: string) => {
+    return callApi('restoreDatabase', { fileId, backupData, userName });
+  },
+
+  resetDriveConnection: async (userName?: string) => {
+    return callApi('resetDriveConnection', { userName });
+  },
+
   getBackupData: async () => {
     return callApi('getBackupData');
   },

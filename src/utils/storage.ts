@@ -609,16 +609,74 @@ export async function purgeLocalCacheAndReloadFromApi(): Promise<boolean> {
   }
 }
 
+let driveConfigCache = {
+  folderId: '',
+  folderUrl: '',
+  folderName: 'Backup Smart Point',
+  status: 'Belum Terhubung',
+  connectedAt: '',
+  lastSync: '',
+  lastBackup: '-',
+  backupCount: 0,
+  readTest: false,
+  writeTest: false,
+  deleteTest: false
+};
+
 export function getDriveFolderConfig(): any {
-  return { folderId: '', folderUrl: '', folderName: 'Backup Smart Point', status: 'Tidak Terhubung' };
+  return driveConfigCache;
 }
 
-export function saveDriveFolderConfig(config: any): any {
-  return config;
+export async function fetchDriveStatusFromApi(): Promise<any> {
+  try {
+    const res = await ApiService.getDriveStatus();
+    if (res.success && res.data) {
+      driveConfigCache = {
+        ...driveConfigCache,
+        ...res.data
+      };
+    }
+    return driveConfigCache;
+  } catch (e) {
+    console.warn('Failed to fetch Drive status from API:', e);
+    return driveConfigCache;
+  }
+}
+
+export async function saveDriveFolderConfig(config: any, userName?: string): Promise<any> {
+  try {
+    const input = config.folderId || config.folderUrl || '';
+    const res = await ApiService.connectGoogleDrive(input, userName);
+    if (res.success && res.data) {
+      driveConfigCache = {
+        ...driveConfigCache,
+        ...res.data
+      };
+    }
+    return res;
+  } catch (err: any) {
+    return {
+      success: false,
+      message: err.message || 'Gagal menyimpan konfigurasi Google Drive'
+    };
+  }
 }
 
 export function getBackupHistoryList(): any[] {
   return [];
+}
+
+export async function fetchBackupFilesFromApi(): Promise<any[]> {
+  try {
+    const res = await ApiService.getBackupFiles();
+    if (res.success && Array.isArray(res.data)) {
+      return res.data;
+    }
+    return [];
+  } catch (e) {
+    console.warn('Failed to fetch backup files from API:', e);
+    return [];
+  }
 }
 
 export function addBackupHistoryRecord(record: any): any {
@@ -630,11 +688,54 @@ export function deleteBackupHistoryRecord(id: string): boolean {
 }
 
 export function getFullBackupData(): any {
-  return { students: memoryCache.students, classes: memoryCache.classes, users: memoryCache.users };
+  return { 
+    students: memoryCache.students, 
+    classes: memoryCache.classes, 
+    majors: memoryCache.majors,
+    violations: memoryCache.violations,
+    transactions: memoryCache.transactions,
+    users: memoryCache.users,
+    settings: memoryCache.settings,
+    disciplineRules: memoryCache.disciplineRules
+  };
 }
 
-export function restoreFullBackupData(data: any): boolean {
-  return true;
+export async function restoreFullBackupData(data: any, userName?: string): Promise<boolean> {
+  try {
+    const res = await ApiService.restoreDatabase(undefined, data, userName);
+    if (res.success) {
+      await syncAllFromApi();
+      return true;
+    }
+    return false;
+  } catch (err) {
+    console.error('Failed to restore backup data:', err);
+    return false;
+  }
+}
+
+export async function resetDriveConnectionApi(userName?: string): Promise<any> {
+  try {
+    const res = await ApiService.resetDriveConnection(userName);
+    if (res.success) {
+      driveConfigCache = {
+        folderId: '',
+        folderUrl: '',
+        folderName: '-',
+        status: 'Belum Terhubung',
+        connectedAt: '',
+        lastSync: '',
+        lastBackup: '-',
+        backupCount: 0,
+        readTest: false,
+        writeTest: false,
+        deleteTest: false
+      };
+    }
+    return res;
+  } catch (err: any) {
+    return { success: false, message: err.message || 'Gagal reset koneksi Drive' };
+  }
 }
 
 export function resetModuleData(moduleOrOptions?: any, userName?: string, role?: string): boolean {

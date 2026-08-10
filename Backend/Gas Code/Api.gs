@@ -163,7 +163,42 @@ function handleApiRequest(e) {
         responseData = DisciplineMatrix.toggleActive(params.id || params.ruleId, params.isActive, params.userName, params.userRole);
         break;
 
-      // BACKUP & RESTORE & SPREADSHEET CONNECTION ENDPOINTS
+      // BACKUP & RESTORE & GOOGLE DRIVE & SPREADSHEET CONNECTION ENDPOINTS
+      case 'connectGoogleDrive':
+        responseData = Backup.connectDrive(params.folderId || params.folderUrl || params.folderInput || params.url, params.userName || 'Admin');
+        break;
+
+      case 'validateGoogleDrive':
+        responseData = Backup.connectDrive(params.folderId || params.folderUrl || params.folderInput || params.url, params.userName || 'Admin');
+        break;
+
+      case 'getDriveStatus':
+      case 'getGoogleDriveStatus':
+        responseData = Backup.getDriveStatus();
+        break;
+
+      case 'getBackupFiles':
+      case 'getDriveBackupFiles':
+        responseData = Backup.getBackupFilesFromDrive();
+        break;
+
+      case 'backupDatabase':
+      case 'backupToDrive':
+        responseData = Backup.backupToDrive(params.filename, params.scope, params.userName || 'Admin');
+        break;
+
+      case 'restoreDatabase':
+      case 'restoreFromDrive':
+        responseData = params.fileId 
+          ? Backup.restoreFromDriveFile(params.fileId, params.userName || 'Admin')
+          : Backup.importFull(params.backupData || params.backup || params);
+        break;
+
+      case 'resetDriveConnection':
+      case 'resetGoogleDriveConnection':
+        responseData = Backup.resetDriveConnection(params.userName || 'Admin');
+        break;
+
       case 'getBackupData':
         responseData = Backup.exportFull();
         break;

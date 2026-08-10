@@ -272,107 +272,195 @@ export const BackupResetView: React.FC<BackupResetViewProps> = ({
     );
   };
 
-  // TAB 2: DRIVE HANDLERS
-  const handleTestDrive = () => {
-    if (!driveConfig.folderId && !driveConfig.folderUrl) {
+  // Load live Drive status and backup files from backend on mount
+  React.useEffect(() => {
+    loadLiveDriveStatus();
+    loadLiveBackupFiles();
+  }, []);
+
+  const loadLiveDriveStatus = async () => {
+    try {
+      const res = await ApiService.getDriveStatus();
+      if (res.success && res.data) {
+        setDriveConfig((prev) => ({
+          ...prev,
+          ...res.data
+        }));
+      }
+    } catch (e) {
+      console.warn('Gagal memuat status Drive dari API:', e);
+    }
+  };
+
+  const loadLiveBackupFiles = async () => {
+    try {
+      const res = await ApiService.getBackupFiles();
+      if (res.success && Array.isArray(res.data)) {
+        setHistoryList(res.data);
+      }
+    } catch (e) {
+      console.warn('Gagal memuat daftar file backup dari API:', e);
+    }
+  };
+
+  // TAB 2: DRIVE HANDLERS (REAL API CONNECTION)
+  const handleTestDrive = async () => {
+    const input = driveConfig.folderId || driveConfig.folderUrl || '';
+    if (!input.trim()) {
       showAlert('warning', 'Peringatan', 'Silakan masukkan Folder ID atau URL Google Drive terlebih dahulu.');
       return;
     }
     setIsTestingDrive(true);
-    setTimeout(() => {
+    try {
+      const res = await ApiService.validateGoogleDrive(input, userName);
       setIsTestingDrive(false);
-      const updated = {
-        ...driveConfig,
-        status: 'Terhubung' as const,
-        connectedAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
-      };
-      setDriveConfig(updated);
-      saveDriveFolderConfig(updated);
-      logActivity(userName, 'TEST_DRIVE_FOLDER', `Uji koneksi Google Drive Folder [${driveConfig.folderName}] berhasil`);
-      showAlert('success', 'Folder Terhubung!', `Akses ke Folder Google Drive "${driveConfig.folderName}" terverifikasi aktif.`);
-    }, 1200);
-  };
-
-  const handleSaveDrive = () => {
-    setIsSavingDrive(true);
-    setTimeout(() => {
-      setIsSavingDrive(false);
-      saveDriveFolderConfig(driveConfig);
-      logActivity(userName, 'SAVE_DRIVE_CONFIG', `Menyimpan konfigurasi Drive Folder ID: ${driveConfig.folderId}`);
-      showAlert('success', 'Tersimpan!', 'Konfigurasi Folder Google Drive berhasil disimpan.');
-    }, 800);
-  };
-
-  // TAB 3: BACKUP PROCESS
-  const handleExecuteBackup = () => {
-    setIsProcessingBackup(true);
-    setTimeout(() => {
-      setIsProcessingBackup(false);
-      const now = new Date();
-      const pad = (n: number) => String(n).padStart(2, '0');
-      const dateStr = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-      const timeStr = `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-
-      let scopeType = 'Seluruh Database';
-      if (!backupScope.fullDb) {
-        const activeScopes = [];
-        if (backupScope.students) activeScopes.push('Siswa');
-        if (backupScope.masterViolations) activeScopes.push('Pelanggaran');
-        if (backupScope.users) activeScopes.push('Users');
-        if (backupScope.settings) activeScopes.push('Settings');
-        if (backupScope.activityLog) activeScopes.push('Log');
-        scopeType = activeScopes.join(', ') || 'Parsial';
+      if (res.success && res.data) {
+        const updated = {
+          ...driveConfig,
+          ...res.data
+        };
+        setDriveConfig(updated);
+        logActivity(userName, 'TEST_DRIVE_FOLDER', `Uji koneksi Google Drive Folder [${res.data.folderName || input}] berhasil`);
+        showAlert('success', 'Uji Koneksi Berhasil!', res.message || `Akses ke Folder Google Drive "${res.data.folderName}" terverifikasi aktif (Read, Write, Delete OK).`);
+      } else {
+        showAlert('error', 'Uji Koneksi Gagal', res.message || 'Gagal memverifikasi folder Google Drive. Pastikan Folder ID dan hak akses benar.');
       }
-
-      const newRec = addBackupHistoryRecord({
-        date: dateStr,
-        time: timeStr,
-        filename: backupFilename,
-        type: scopeType,
-        size: '2.4 MB',
-        user: `${userName} (Admin)`,
-        status: 'Berhasil',
-        driveFolder: driveConfig.folderName
-      });
-
-      setHistoryList(getBackupHistoryList());
-      logActivity(userName, 'BACKUP_DATABASE', `Membuat file backup database: ${backupFilename} [Drive: ${driveConfig.folderName}]`);
-
-      // Trigger client-side JSON/XLSX snapshot download
-      const fullData = getFullBackupData();
-      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(fullData, null, 2));
-      const downloadAnchor = document.createElement('a');
-      downloadAnchor.setAttribute("href", dataStr);
-      downloadAnchor.setAttribute("download", backupFilename.replace('.xlsx', '.json'));
-      document.body.appendChild(downloadAnchor);
-      downloadAnchor.click();
-      downloadAnchor.remove();
-
-      showAlert(
-        'success',
-        'Backup Berhasil Disimpan!',
-        `Salinan database "${backupFilename}" berhasil dibuat dan dikirim ke Folder Google Drive "${driveConfig.folderName}".`
-      );
-
-      // Refresh default filename for next run
-      setBackupFilename(generateDefaultFilename());
-    }, 1500);
+    } catch (err: any) {
+      setIsTestingDrive(false);
+      showAlert('error', 'Error Koneksi', err.message || 'Terjadi kesalahan sistem saat menguji koneksi Google Drive.');
+    }
   };
 
-  // TAB 4: RESTORE HANDLERS
+  const handleSaveDrive = async () => {
+    const input = driveConfig.folderId || driveConfig.folderUrl || '';
+    if (!input.trim()) {
+      showAlert('warning', 'Peringatan', 'Silakan masukkan Folder ID atau URL Google Drive terlebih dahulu.');
+      return;
+    }
+    setIsSavingDrive(true);
+    try {
+      const res = await ApiService.connectGoogleDrive(input, userName);
+      setIsSavingDrive(false);
+      if (res.success && res.data) {
+        setDriveConfig((prev) => ({
+          ...prev,
+          ...res.data
+        }));
+        logActivity(userName, 'SAVE_DRIVE_CONFIG', `Menghubungkan Drive Folder ID: ${res.data.folderId}`);
+        showAlert('success', 'Folder Terhubung!', res.message || 'Konfigurasi Folder Google Drive berhasil terhubung dan diverifikasi penuh.');
+        loadLiveDriveStatus();
+        loadLiveBackupFiles();
+      } else {
+        showAlert('error', 'Gagal Terhubung', res.message || 'Google Drive tidak dapat dihubungkan. Silakan periksa kembali Folder ID.');
+      }
+    } catch (err: any) {
+      setIsSavingDrive(false);
+      showAlert('error', 'Error Backend', err.message || 'Terjadi kesalahan saat menyimpan konfigurasi Google Drive.');
+    }
+  };
+
+  const handleResetDriveConnection = () => {
+    showAlert(
+      'warning',
+      'Reset Koneksi Google Drive',
+      `Apakah Anda yakin ingin menghapus konfigurasi koneksi Google Drive? Folder dan file backup Anda di Google Drive TIDAK akan dihapus.`,
+      async () => {
+        closeAlert();
+        setIsSavingDrive(true);
+        try {
+          const res = await ApiService.resetDriveConnection(userName);
+          setIsSavingDrive(false);
+          if (res.success) {
+            setDriveConfig({
+              folderId: '',
+              folderUrl: '',
+              folderName: 'Backup Smart Point',
+              status: 'Belum Terhubung',
+              connectedAt: '',
+              lastSync: '',
+              lastBackup: '-',
+              backupCount: 0,
+              readTest: false,
+              writeTest: false,
+              deleteTest: false
+            });
+            logActivity(userName, 'RESET_DRIVE_CONFIG', 'Mereset koneksi Google Drive');
+            showAlert('success', 'Koneksi Direset!', res.message || 'Konfigurasi koneksi Google Drive berhasil dibersihkan.');
+          } else {
+            showAlert('error', 'Gagal Reset', res.message || 'Gagal mereset koneksi Google Drive.');
+          }
+        } catch (err: any) {
+          setIsSavingDrive(false);
+          showAlert('error', 'Error Reset', err.message || 'Terjadi kesalahan sistem.');
+        }
+      },
+      true,
+      'Ya, Reset Koneksi'
+    );
+  };
+
+  // TAB 3: BACKUP PROCESS (REAL GOOGLE DRIVE BACKUP)
+  const handleExecuteBackup = async () => {
+    setIsProcessingBackup(true);
+    let scopeType = 'Seluruh Database';
+    if (!backupScope.fullDb) {
+      const activeScopes = [];
+      if (backupScope.students) activeScopes.push('Siswa');
+      if (backupScope.masterViolations) activeScopes.push('Pelanggaran');
+      if (backupScope.users) activeScopes.push('Users');
+      if (backupScope.settings) activeScopes.push('Settings');
+      if (backupScope.activityLog) activeScopes.push('Log');
+      scopeType = activeScopes.join(', ') || 'Parsial';
+    }
+
+    try {
+      const res = await ApiService.backupDatabase(backupFilename, scopeType, userName);
+      setIsProcessingBackup(false);
+
+      if (res.success && res.data) {
+        logActivity(userName, 'BACKUP_DATABASE', `Membuat file backup database: ${res.data.filename} di Google Drive [${res.data.folderName}]`);
+        
+        showAlert(
+          'success',
+          'Backup Berhasil Disimpan!',
+          res.message || `Salinan database "${res.data.filename}" berhasil dibuat dan disimpan langsung ke Google Drive Folder "${res.data.folderName}".`
+        );
+
+        setBackupFilename(generateDefaultFilename());
+        loadLiveDriveStatus();
+        loadLiveBackupFiles();
+      } else {
+        showAlert('error', 'Gagal Backup', res.message || 'Proses backup ke Google Drive gagal.');
+      }
+    } catch (err: any) {
+      setIsProcessingBackup(false);
+      showAlert('error', 'Error Backup', err.message || 'Terjadi kesalahan saat memproses backup data.');
+    }
+  };
+
+  // TAB 4: RESTORE HANDLERS (REAL GOOGLE DRIVE RESTORE)
   const handleRestoreFile = (item: BackupRecord) => {
     showAlert(
       'warning',
       'Konfirmasi Restore Database',
-      `Seluruh data saat ini akan diganti dengan data dari file backup "${item.filename}" (Tanggal: ${item.date} ${item.time}). Apakah Anda yakin ingin melanjutkan?`,
-      () => {
+      `Seluruh data Google Spreadsheet saat ini akan diganti dengan data dari file backup "${item.filename}" (Tanggal: ${item.date} ${item.time}). Apakah Anda yakin ingin melanjutkan?`,
+      async () => {
         closeAlert();
         setIsProcessingBackup(true);
-        setTimeout(() => {
+        try {
+          const res = await ApiService.restoreDatabase(item.id, undefined, userName);
           setIsProcessingBackup(false);
-          logActivity(userName, 'RESTORE_DATABASE', `Melakukan restore database dari backup file: ${item.filename}`);
-          showAlert('success', 'Restore Selesai!', 'Database berhasil dipulihkan dari salinan backup.');
-        }, 1500);
+          if (res.success) {
+            await purgeLocalCacheAndReloadFromApi();
+            logActivity(userName, 'RESTORE_DATABASE', `Melakukan restore database dari backup file: ${item.filename}`);
+            showAlert('success', 'Restore Selesai!', res.message || 'Database Google Spreadsheet berhasil dipulihkan dari salinan backup.');
+          } else {
+            showAlert('error', 'Gagal Restore', res.message || 'Proses restore database gagal.');
+          }
+        } catch (err: any) {
+          setIsProcessingBackup(false);
+          showAlert('error', 'Error Restore', err.message || 'Terjadi kesalahan saat merestore database.');
+        }
       },
       true,
       'Ya, Restore Sekarang'
@@ -877,8 +965,36 @@ export const BackupResetView: React.FC<BackupResetViewProps> = ({
               
               <div className="space-y-3 text-xs">
                 <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
-                  <span className="text-slate-600 dark:text-slate-400">Status Izin Penulisan:</span>
-                  <span className="font-bold text-emerald-600 dark:text-emerald-400">Aktif (Read / Write)</span>
+                  <span className="text-slate-600 dark:text-slate-400">Status Koneksi Drive:</span>
+                  <span className={`font-bold ${driveConfig.status === 'Terhubung' ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                    {driveConfig.status}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400">Pengujian Hak Akses READ:</span>
+                  <span className={`font-bold ${driveConfig.readTest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                    {driveConfig.readTest ? '✓ OK (Folder Terbaca)' : 'Belum Terverifikasi'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400">Pengujian Hak Akses WRITE:</span>
+                  <span className={`font-bold ${driveConfig.writeTest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                    {driveConfig.writeTest ? '✓ OK (Bisa Buat File)' : 'Belum Terverifikasi'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400">Pengujian Hak Akses DELETE:</span>
+                  <span className={`font-bold ${driveConfig.deleteTest ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400'}`}>
+                    {driveConfig.deleteTest ? '✓ OK (Bisa Hapus/Trash)' : 'Belum Terverifikasi'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
+                  <span className="text-slate-600 dark:text-slate-400">File Backup Terdeteksi:</span>
+                  <span className="font-bold text-blue-600 dark:text-blue-400">{driveConfig.backupCount || 0} File</span>
                 </div>
 
                 <div className="flex justify-between items-center py-2 border-b border-slate-200 dark:border-slate-800">
@@ -887,7 +1003,7 @@ export const BackupResetView: React.FC<BackupResetViewProps> = ({
                 </div>
 
                 <div className="p-3 bg-amber-50 dark:bg-amber-950/40 rounded-xl border border-amber-200 dark:border-amber-900/60 text-amber-800 dark:text-amber-300 text-[11px] leading-relaxed">
-                  🛡️ <strong>Akses Drive App:</strong> Backend Google Apps Script menggunakan `DriveApp.getFolderById()` untuk menyimpan file cadangan Spreadsheet secara otomatis tanpa batasan kuota lokal.
+                  🛡️ <strong>Akses Real Drive API:</strong> Backend Google Apps Script menggunakan `DriveApp.getFolderById()` untuk verifikasi koneksi, uji baca/tulis/hapus, serta penyimpanan file cadangan secara real.
                 </div>
               </div>
             </div>
@@ -901,7 +1017,16 @@ export const BackupResetView: React.FC<BackupResetViewProps> = ({
                 className="px-4 py-2.5 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
               >
                 {isTestingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                Uji Koneksi Drive
+                Uji Koneksi Drive Real
+              </button>
+
+              <button
+                onClick={handleResetDriveConnection}
+                disabled={isSavingDrive || isTestingDrive}
+                className="px-4 py-2.5 bg-rose-50 dark:bg-rose-950/60 hover:bg-rose-100 dark:hover:bg-rose-900/60 text-rose-700 dark:text-rose-300 border border-rose-200 dark:border-rose-800 rounded-xl text-xs font-bold transition-all flex items-center gap-2 cursor-pointer"
+              >
+                <XCircle className="w-4 h-4" />
+                Reset Koneksi Google Drive
               </button>
             </div>
 
@@ -912,7 +1037,7 @@ export const BackupResetView: React.FC<BackupResetViewProps> = ({
                 className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md hover:shadow-blue-500/25 transition-all flex items-center gap-2 cursor-pointer"
               >
                 {isSavingDrive ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Simpan Konfigurasi Drive
+                Hubungkan & Verifikasi Drive
               </button>
             </div>
           </div>
